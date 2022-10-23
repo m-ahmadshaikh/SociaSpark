@@ -1,0 +1,53 @@
+const User = require('../../models/User');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { SECRET_KEY } = require('../../config');
+const { UserInputError } = require('apollo-server');
+const validateInput = require('../../utils/validators');
+
+const userResolvers = {
+  Query: {},
+  Mutation: {
+    async register(
+      _,
+      { input: { email, password, confirmPassword, username } }
+    ) {
+      const user = await User.findOne({ username });
+      if (user) {
+        throw new UserInputError('username is taken', {
+          errors: { username: 'This Username is taken' },
+        });
+      }
+
+      const { errors, valid } = validateInput(
+        username,
+        password,
+        confirmPassword,
+        username
+      );
+
+      if (!valid) {
+      }
+      password = await bcrypt.hash(password, 12);
+      const newUser = new User({
+        email,
+        password,
+        createdAt: new Date().toISOString(),
+        username,
+      });
+      const res = await newUser.save();
+      const token = jwt.sign(
+        {
+          username,
+          email,
+          id: res.id,
+        },
+        SECRET_KEY,
+        { expiresIn: '1h' }
+      );
+      return { ...res._doc, id: res.id, token };
+    },
+  },
+};
+
+module.exports = userResolvers;
